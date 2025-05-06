@@ -1,0 +1,68 @@
+# Byte-compiled / optimized / DLL files
+_pycache_/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.eggs/
+dist/
+build/
+sdist/
+develop-eggs/
+eggs/
+lib/
+lib64/
+parts/
+srv/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+
+# Environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  to the current working directory.
+# *.spec
+# _pycache_/
+# /build
+# /dist
+
+# Log files
+*.log
+
+# Testing
+*.pyc
+*.pyd
+_pycache_/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+doctest.tmp
+
+# OS or Editor related files
+.DS_Store
+.Thumbs.db
+*.swp
+*.swo
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Sensitive information
+.env
+my_secrets.txt
