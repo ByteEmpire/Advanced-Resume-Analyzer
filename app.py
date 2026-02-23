@@ -2,19 +2,23 @@ import streamlit as st
 import joblib
 import fitz
 import re
-import os
 from collections import Counter
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
-from pdf_report import generate_resume_pdf
 from predict_resume import predict_resume
 from preprocess import clean_resume
+from pdf_report import generate_resume_pdf
 
-st.set_page_config(page_title="Advanced Resume Analyzer", layout="wide")
+# ================== CONFIG ==================
+st.set_page_config(
+    page_title="Advanced Resume Analyzer",
+    layout="wide"
+)
+
 st.title("📄 Advanced Resume Analyzer")
 
-# ---------- Cache ----------
+# ================== CACHE ==================
 @st.cache_resource
 def load_assets():
     model = joblib.load("resume_classifier_model.pkl")
@@ -24,23 +28,24 @@ def load_assets():
 
 model, tfidf, label_map = load_assets()
 
-# ---------- Helpers ----------
+# ================== CONSTANTS ==================
 SKILLS = {
-    "python","java","sql","c++","javascript",
-    "machine learning","deep learning","data science",
-    "pandas","numpy","excel"
+    "python", "java", "sql", "c++", "javascript",
+    "machine learning", "deep learning", "data science",
+    "pandas", "numpy", "excel"
 }
 
 ROLE_SKILLS = {
-    "Data Scientist": {"python","pandas","numpy","machine learning"},
-    "Software Engineer": {"java","python","c++","sql","javascript"},
-    "ML Engineer": {"python","machine learning","deep learning"},
-    "Data Analyst": {"sql","excel","python","pandas"}
+    "Data Scientist": {"python", "pandas", "numpy", "machine learning"},
+    "Software Engineer": {"java", "python", "c++", "sql", "javascript"},
+    "ML Engineer": {"python", "machine learning", "deep learning"},
+    "Data Analyst": {"sql", "excel", "python", "pandas"}
 }
 
-def extract_text_from_pdf(pdf):
-    doc = fitz.open(stream=pdf.read(), filetype="pdf")
-    return " ".join(p.get_text() for p in doc)
+# ================== HELPERS ==================
+def extract_text_from_pdf(pdf_file):
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+    return " ".join(page.get_text() for page in doc)
 
 def extract_skills(text):
     text = text.lower()
@@ -57,13 +62,13 @@ def resume_score(text):
     score += 20 if len(text) > 600 else 10
     return min(score, 100)
 
-# ---------- UI ----------
+# ================== UI ==================
 tabs = st.tabs(["🔍 Analyze Resume", "📊 Insights"])
 
 if "resume_text" not in st.session_state:
     st.session_state.resume_text = ""
 
-# ---------- TAB 1 ----------
+# ================== TAB 1 ==================
 with tabs[0]:
     option = st.radio("Input Method", ["Paste Text", "Upload PDF"])
 
@@ -74,37 +79,59 @@ with tabs[0]:
             height=220
         )
     else:
-        pdf = st.file_uploader("Upload Resume PDF", type=["pdf"])
-        if pdf:
-            st.session_state.resume_text = extract_text_from_pdf(pdf)
+        pdf_file = st.file_uploader("Upload Resume PDF", type=["pdf"])
+        if pdf_file:
+            st.session_state.resume_text = extract_text_from_pdf(pdf_file)
             st.text_area("Extracted Text", st.session_state.resume_text, height=220)
 
-    if st.button("Analyze"):
+    if st.button("Analyze Resume"):
         raw_text = st.session_state.resume_text.strip()
 
         if len(raw_text) < 150:
-            st.warning("Resume text too short for reliable analysis.")
+            st.warning("Resume text is too short for reliable analysis.")
             st.stop()
 
-        cleaned = clean_resume(raw_text)
-        predictions = predict_resume(cleaned, top_k=3)
+        cleaned_text = clean_resume(raw_text)
+        predictions = predict_resume(cleaned_text, top_k=3)
 
-        role, conf = predictions[0]
+        predicted_role, confidence = predictions[0]
+        score = resume_score(raw_text)
+        skills_found = extract_skills(raw_text)
+        missing_skills = ROLE_SKILLS.get(predicted_role, set()) - set(skills_found.keys())
 
+        # ---- METRICS ----
         col1, col2, col3 = st.columns(3)
-        col1.metric("Predicted Role", role)
-        col2.metric("Confidence", f"{conf*100:.1f}%")
-        col3.metric("Resume Score", f"{resume_score(raw_text)}/100")
+        col1.metric("Predicted Role", predicted_role)
+        col2.metric("Confidence", f"{confidence*100:.1f}%")
+        col3.metric("Resume Score", f"{score}/100")
 
-        st.progress(conf)
+        st.progress(confidence)
 
+        # ---- WORD CLOUD ----
         wc = WordCloud(width=900, height=300, background_color="white").generate(raw_text)
-        fig, ax = plt.subplots(figsize=(10,4))
+        fig, ax = plt.subplots(figsize=(10, 4))
         ax.imshow(wc)
         ax.axis("off")
         st.pyplot(fig)
 
-# ---------- TAB 2 ----------
+        # ---- PDF EXPORT ----
+        pdf_bytes = generate_resume_pdf(
+            predicted_role=predicted_role,
+            confidence=confidence,
+            resume_score=score,
+            skills_found=list(skills_found.keys()),
+            missing_skills=list(missing_skills),
+            top_roles=predictions
+        )
+
+        st.download_button(
+            label="📄 Download Resume Analysis PDF",
+            data=pdf_bytes,
+            file_name="resume_analysis_report.pdf",
+            mime="application/pdf"
+        )
+
+# ================== TAB 2 ==================
 with tabs[1]:
     text = st.session_state.resume_text.strip()
     if text:
@@ -123,13 +150,13 @@ with tabs[1]:
 
         with col2:
             st.subheader("🎯 Top Role Suggestions")
-            for r, p in predict_resume(clean_resume(text), top_k=3):
-                st.write(f"• **{r}** — {p*100:.1f}%")
+            for role, prob in predict_resume(clean_resume(text), top_k=3):
+                st.write(f"• **{role}** — {prob*100:.1f}%")
 
         predicted_role = predict_resume(clean_resume(text))[0][0]
         missing = ROLE_SKILLS.get(predicted_role, set()) - set(skills.keys())
 
-        st.subheader("🚧 Skill Gap")
+        st.subheader("🚧 Skill Gap Analysis")
         if missing:
             st.warning(", ".join(missing))
         else:
