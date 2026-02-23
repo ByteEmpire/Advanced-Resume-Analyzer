@@ -1,41 +1,36 @@
 import pandas as pd
+import joblib
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
-import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-# Load the data
-df = pd.read_csv('UpdatedResumeDataSet_Encoded.csv')
+from preprocess import clean_resume
 
-# Features (Resumes) and target (encoded categories)
-X = df['Resume']
-y = df['Category_encoded']
+df = pd.read_csv("UpdatedResumeDataSet_Encoded.csv")
 
-# Initialize the TF-IDF Vectorizer
-tfidf = TfidfVectorizer(max_features=3000)
+df["cleaned_resume"] = df["Resume"].astype(str).apply(clean_resume)
 
-# Fit and transform the text data to get the TF-IDF features
+X = df["cleaned_resume"]
+y = df["Category_encoded"]
+
+tfidf = TfidfVectorizer(max_features=3000, ngram_range=(1,2), min_df=2)
 X_tfidf = tfidf.fit_transform(X)
 
-# Split data into training and testing sets (80/20 split)
-X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X_tfidf, y, test_size=0.2, random_state=42, stratify=y
+)
 
-# Initialize the Logistic Regression model
-model = LogisticRegression(max_iter=1000)
-
-# Train the model
+model = LogisticRegression(max_iter=1000, n_jobs=-1)
 model.fit(X_train, y_train)
 
-# Predict on the test set
 y_pred = model.predict(X_test)
 
-# Evaluate the model
-print(f'Accuracy: {accuracy_score(y_test, y_pred)}')
-print('Classification Report:\n', classification_report(y_test, y_pred))
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
 
-# Save the model and vectorizer
-joblib.dump(model, 'resume_classifier_model.pkl')
-joblib.dump(tfidf, 'tfidf_vectorizer.pkl')
+joblib.dump(model, "resume_classifier_model.pkl")
+joblib.dump(tfidf, "tfidf_vectorizer.pkl")
 
-print("Model and Vectorizer saved successfully!")
+print("Model trained and saved.")
