@@ -1,24 +1,19 @@
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 import joblib
 
-# Load dataset
-df = pd.read_csv('UpdatedResumeDataSet.csv')
+df = pd.read_csv("UpdatedResumeDataSet.csv")
 
-# Initialize encoder
-le = LabelEncoder()
+categories = sorted(df["Category"].unique())
+label_to_id = {c: i for i, c in enumerate(categories)}
+id_to_label = {i: c for c, i in label_to_id.items()}
 
-# Encode 'Category' column
-df['Category_encoded'] = le.fit_transform(df['Category'])
+df["Category_encoded"] = df["Category"].map(label_to_id)
 
-# Display category mapping
-label_mapping = dict(zip(le.classes_, le.transform(le.classes_)))
-print("Category to Number Mapping:\n", label_mapping)
+joblib.dump(
+    {"label_to_id": label_to_id, "id_to_label": id_to_label},
+    "label_mapping.pkl"
+)
 
-# Save the label mapping to a file
-joblib.dump(label_mapping, 'label_mapping.pkl')
+df.to_csv("UpdatedResumeDataSet_Encoded.csv", index=False)
 
-print("Label mapping saved successfully!")
-
-# Optional: Save the updated dataset
-df.to_csv('UpdatedResumeDataSet_Encoded.csv', index=False)
+print("Label encoding completed.")
