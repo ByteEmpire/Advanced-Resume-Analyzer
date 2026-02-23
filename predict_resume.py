@@ -6,10 +6,19 @@ def load_assets():
     model = joblib.load("resume_classifier_model.pkl")
     tfidf = joblib.load("tfidf_vectorizer.pkl")
     mapping = joblib.load("label_mapping.pkl")
-    return model, tfidf, mapping["id_to_label"]
+
+    # ✅ Handle BOTH old and new formats
+    if isinstance(mapping, dict) and "id_to_label" in mapping:
+        id_to_label = mapping["id_to_label"]
+    else:
+        # old format: {label: id}
+        id_to_label = {v: k for k, v in mapping.items()}
+
+    return model, tfidf, id_to_label
 
 def predict_resume(text, top_k=1):
     model, tfidf, id_to_label = load_assets()
+
     vec = tfidf.transform([text])
     probs = model.predict_proba(vec)[0]
 
@@ -18,4 +27,5 @@ def predict_resume(text, top_k=1):
         key=lambda x: x[1],
         reverse=True
     )
+
     return ranked[:top_k]
