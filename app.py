@@ -7,6 +7,7 @@ from collections import Counter
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
+from pdf_report import generate_resume_pdf
 from predict_resume import predict_resume
 from preprocess import clean_resume
 
